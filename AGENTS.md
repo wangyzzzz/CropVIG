@@ -59,6 +59,8 @@
   - split the full H timeline into 20 continuous bins
   - use each bin's midpoint time key as the target anchor point
   - do not flatten the full bin as one group for the formal current run
+- Use the complete hyperspectral H time axis for these 20 bins, not only `common_tbs`.
+- `H_FULL` and `G+FULLH` growth-prefix baselines must retain all raw H features inside elapsed H bins.
 - Current `3.3B/3.4A` AUTO radius search uses `anchor_window_search.radius_candidates: [0, 1, 2, 3]`.
 - Current `3.3B/3.4A` group-count search uses `anchor_local_pruning.min_groups: 0` and `anchor_local_pruning.max_groups: 48`.
 - In `3.4A` growth-prefix runs, radius-expanded features must also obey the current prefix:

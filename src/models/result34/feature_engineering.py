@@ -155,18 +155,23 @@ def _normalize_phase_name(phase: str | None) -> str:
     return str(phase or "sow")
 
 
-def _build_anchor_bin_definitions(bundle: MultiTargetDataBundle, n_anchor_bins: int) -> list[dict[str, Any]]:
-    common_tbs = list(dict.fromkeys(sorted(bundle.common_tbs, key=time_key_sort_key)))
-    if not common_tbs:
-        raise ValueError("common_tbs 为空，无法切分 anchor bins。")
+def _ordered_hyperspectral_time_keys(bundle: MultiTargetDataBundle) -> list[TimeKey]:
+    time_keys = list(dict.fromkeys(sorted(bundle.hyperspectral_tb_map.keys(), key=time_key_sort_key)))
+    if not time_keys:
+        raise ValueError("hyperspectral_tb_map 为空，无法切分 H anchor bins。")
+    return time_keys
 
-    n_effective = min(max(1, int(n_anchor_bins)), len(common_tbs))
-    index_bins = np.array_split(np.arange(len(common_tbs)), n_effective)
+
+def _build_anchor_bin_definitions(bundle: MultiTargetDataBundle, n_anchor_bins: int) -> list[dict[str, Any]]:
+    time_axis = _ordered_hyperspectral_time_keys(bundle)
+
+    n_effective = min(max(1, int(n_anchor_bins)), len(time_axis))
+    index_bins = np.array_split(np.arange(len(time_axis)), n_effective)
     out: list[dict[str, Any]] = []
     for bin_idx, idxs in enumerate(index_bins):
         if len(idxs) == 0:
             continue
-        time_keys = [common_tbs[int(i)] for i in idxs.tolist()]
+        time_keys = [time_axis[int(i)] for i in idxs.tolist()]
         start_key = time_keys[0]
         end_key = time_keys[-1]
         center_key = time_keys[len(time_keys) // 2]

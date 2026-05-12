@@ -46,6 +46,24 @@ def _make_bundle() -> MultiTargetDataBundle:
     )
 
 
+def _make_bundle_with_h_only_time_key() -> MultiTargetDataBundle:
+    bundle = _make_bundle()
+    x_h = bundle.x_hyperspectral.copy()
+    x_h["vi_ndvi__tb_p00030"] = [4.0, 5.0]
+    h_map = dict(bundle.hyperspectral_tb_map)
+    h_map[(None, 30)] = ["vi_ndvi__tb_p00030"]
+    return MultiTargetDataBundle(
+        meta=bundle.meta,
+        y_df=bundle.y_df,
+        x_climate=bundle.x_climate,
+        x_hyperspectral=x_h,
+        x_genotype=bundle.x_genotype,
+        climate_tb_map=bundle.climate_tb_map,
+        hyperspectral_tb_map=h_map,
+        common_tbs=bundle.common_tbs,
+    )
+
+
 class TestResult34AnchorBinFeatures(unittest.TestCase):
     def test_anchor_grouping_uses_midpoint_points_at_radius_zero(self) -> None:
         bundle = _make_bundle()
@@ -127,6 +145,30 @@ class TestResult34AnchorBinFeatures(unittest.TestCase):
         self.assertEqual(int(info_prefix["n_features_total"]), 2)
         self.assertEqual(int(info_prefix["n_features_h_full"]), 2)
         self.assertTrue((spec_prefix["anchor_idx"] <= 0).all())
+
+    def test_full_h_prefix_maps_h_only_time_keys_not_in_common_tbs(self) -> None:
+        bundle = _make_bundle_with_h_only_time_key()
+        x_full, info = build_h_full_features(bundle)
+        spec_with_prefix = attach_anchor_bin_prefix_to_full_h_spec(
+            bundle,
+            info["feature_spec_df"],
+            n_anchor_bins=2,
+        )
+
+        self.assertEqual(int(spec_with_prefix["anchor_idx"].isna().sum()), 0)
+        self.assertIn("vi_ndvi__tb_p00030", spec_with_prefix["feature"].tolist())
+
+        x_prefix, info_prefix, spec_prefix = result34_runner._limit_variant_to_anchor_prefix(
+            x=x_full,
+            info=info,
+            feature_spec_df=spec_with_prefix,
+            input_variant="H_FULL",
+            anchor_order=2,
+        )
+
+        self.assertEqual(int(info_prefix["n_features_total"]), 5)
+        self.assertIn("vi_ndvi__tb_p00030", x_prefix.columns.tolist())
+        self.assertTrue((spec_prefix["anchor_idx"] <= 1).all())
 
     def test_group_design_matrix_keeps_bin_order(self) -> None:
         bundle = _make_bundle()
