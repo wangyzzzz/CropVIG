@@ -33,6 +33,7 @@ from models.common.io_utils import ensure_dir, get_git_commit_hash, now_iso, rea
 from models.common.metrics import mean_regression_metrics, regression_metrics, rmse
 from models.common.optuna_reuse import normalize_outer_groups, resolve_optuna_reuse_policy, should_search_on_outer_fold
 from models.common.split_loader import WithinSeasonSplit, load_split_groups
+from models.result34.feature_engineering import PhaseStateConfig, build_h_full_features
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -463,7 +464,7 @@ def enumerate_result31_tasks_from_config(cfg: dict) -> list[dict]:
 
     timeline_dirs = _resolve_timeline_dirs(data_cfg)
     scenarios_cfg = _resolve_scenarios_cfg(data_cfg)
-    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"])]
+    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM"])]
     active_predictors = _resolve_active_predictors(exp_cfg)
     task_filter_set = _resolve_task_filter_set(exp_cfg)
 
@@ -603,11 +604,25 @@ def _resolve_modality_combo(exp_cfg: dict) -> str:
     return _normalize_modality_combo(str(raw_single))
 
 
-def _build_full_feature_matrix(bundle: MultiTargetDataBundle, *, modality_combo: str = "H+C+G") -> tuple[pd.DataFrame, dict]:
+def _build_full_feature_matrix(
+    bundle: MultiTargetDataBundle,
+    *,
+    modality_combo: str = "H+C+G",
+    enable_phase_internal_tail_fill: bool = False,
+) -> tuple[pd.DataFrame, dict]:
     combo = _normalize_modality_combo(modality_combo)
     tokens = set(combo.split("+"))
 
-    h_cols = list(bundle.x_hyperspectral.columns) if "H" in tokens else []
+    h_source = bundle.x_hyperspectral
+    h_tail_fill_mode = "none"
+    if "H" in tokens and bool(enable_phase_internal_tail_fill):
+        h_source, h_info = build_h_full_features(
+            bundle,
+            config=PhaseStateConfig(enable_phase_internal_tail_fill=True),
+        )
+        h_tail_fill_mode = str(h_info.get("tail_fill_mode", "tail_only_within_phase"))
+
+    h_cols = list(h_source.columns) if "H" in tokens else []
     c_cols = list(bundle.x_climate.columns) if "C" in tokens else []
     g_cols = list(bundle.x_genotype.columns) if "G" in tokens else []
     if not (h_cols or c_cols or g_cols):
@@ -615,7 +630,7 @@ def _build_full_feature_matrix(bundle: MultiTargetDataBundle, *, modality_combo:
 
     frames = []
     if h_cols:
-        frames.append(bundle.x_hyperspectral[h_cols])
+        frames.append(h_source[h_cols])
     if c_cols:
         frames.append(bundle.x_climate[c_cols])
     if g_cols:
@@ -633,6 +648,8 @@ def _build_full_feature_matrix(bundle: MultiTargetDataBundle, *, modality_combo:
         "n_features_g": int(len(g_cols)),
         "n_time_keys_h": int(len(bundle.hyperspectral_tb_map) if h_cols else 0),
         "n_time_keys_c": int(len(bundle.climate_tb_map) if c_cols else 0),
+        "h_tail_fill_enabled": bool(enable_phase_internal_tail_fill and h_cols),
+        "h_tail_fill_mode": h_tail_fill_mode if h_cols else "not_applicable",
         "first_time_key": bundle.common_tbs[0] if bundle.common_tbs else None,
         "last_time_key": bundle.common_tbs[-1] if bundle.common_tbs else None,
         "h_cols": h_cols,
@@ -655,6 +672,8 @@ def _availability_row(timeline: str, x: pd.DataFrame, info: dict) -> dict:
         "n_features_g": int(info["n_features_g"]),
         "n_time_keys_h": int(info["n_time_keys_h"]),
         "n_time_keys_c": int(info["n_time_keys_c"]),
+        "h_tail_fill_enabled": bool(info.get("h_tail_fill_enabled", False)),
+        "h_tail_fill_mode": str(info.get("h_tail_fill_mode", "none")),
         "overall_missing_ratio": overall_missing_ratio,
         "row_missing_ratio_mean": float(row_miss.mean()),
         "row_missing_ratio_std": float(row_miss.std(ddof=0)),
@@ -1086,7 +1105,7 @@ def _generate_figures(
     )
     target_order = _ordered_unique(
         sorted(summary_df["target"].astype(str).unique()),
-        preferred=target_order or ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"],
+        preferred=target_order or ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM"],
     )
     timeline_order = _ordered_unique(
         sorted(summary_df["timeline"].astype(str).unique()),
@@ -1433,7 +1452,8 @@ def run_result3_1(config_path: Path) -> Path:
 
     genotype_representation = str(exp_cfg.get("genotype_representation", "grm_pca"))
     modality_combo = _resolve_modality_combo(exp_cfg)
-    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"])]
+    enable_phase_internal_tail_fill = bool(exp_cfg.get("enable_phase_internal_tail_fill", False))
+    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM"])]
     timeline_dirs = _resolve_timeline_dirs(data_cfg)
     scenarios_cfg = _resolve_scenarios_cfg(data_cfg)
     backend_cfg = exp_cfg.get("model_backends", {})
@@ -1458,7 +1478,11 @@ def run_result3_1(config_path: Path) -> Path:
     for timeline_name, timeline_path in timeline_dirs.items():
         print(f"[LOAD] timeline={timeline_name} path={timeline_path}", flush=True)
         bundle = load_multitarget_model_inputs(Path(timeline_path), genotype_representation=genotype_representation)
-        x_full, info = _build_full_feature_matrix(bundle, modality_combo=modality_combo)
+        x_full, info = _build_full_feature_matrix(
+            bundle,
+            modality_combo=modality_combo,
+            enable_phase_internal_tail_fill=enable_phase_internal_tail_fill,
+        )
         timeline_bundles[timeline_name] = bundle
         timeline_features[timeline_name] = x_full
         timeline_feature_info[timeline_name] = info

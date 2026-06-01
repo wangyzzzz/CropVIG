@@ -71,11 +71,21 @@ def shard_tasks(
     shard_count = min(int(n_workers), len(tasks))
     shards: list[list[dict[str, str]]] = [[] for _ in range(shard_count)]
     shard_weights = [0.0 for _ in range(shard_count)]
+    shard_predictors: list[set[str]] = [set() for _ in range(shard_count)]
 
     for task in sorted(tasks, key=scorer, reverse=True):
-        idx = min(range(shard_count), key=lambda i: (shard_weights[i], len(shards[i])))
+        predictor = str(task["predictor"]).lower()
+        idx = min(
+            range(shard_count),
+            key=lambda i: (
+                1 if predictor in shard_predictors[i] else 0,
+                shard_weights[i],
+                len(shards[i]),
+            ),
+        )
         shards[idx].append(task)
         shard_weights[idx] += scorer(task)
+        shard_predictors[idx].add(predictor)
 
     return [shard for shard in shards if shard]
 

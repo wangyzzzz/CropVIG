@@ -8,7 +8,7 @@ from typing import Any
 from models.common.io_utils import read_yaml, write_yaml
 
 
-DEFAULT_TARGETS = ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"]
+DEFAULT_TARGETS = ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM", "Water"]
 DEFAULT_PREDICTORS_5 = ["ridge", "lasso", "elasticnet", "lightgbm", "random_forest"]
 DEFAULT_VI_NAMES = [
     "vi_evi2",
@@ -101,9 +101,54 @@ def build_result32a_section_cfg(
     exp_cfg = cfg["experiment"]
     exp_cfg["predictors_supported"] = list(DEFAULT_PREDICTORS_5)
     exp_cfg["predictors_run"] = list(DEFAULT_PREDICTORS_5)
-    exp_cfg["modality_variants"] = ["G", "GH_SINGLE"]
+    exp_cfg["modality_variants"] = ["H_FULL_VI"]
+    exp_cfg["vi_names"] = [str(x) for x in exp_cfg.get("vi_names", DEFAULT_VI_NAMES)]
     exp_cfg["n_anchor_bins"] = int(exp_cfg.get("n_anchor_bins", 20))
-    exp_cfg["factor_group_ablation"] = {"enabled": True}
+    exp_cfg["factor_group_ablation"] = {"enabled": False}
+    exp_cfg["index_ablation"] = {"enabled": False}
+    if output_dir:
+        cfg["output"]["output_dir_base"] = str(output_dir)
+        cfg["output"]["append_timestamp"] = False
+        cfg["output"]["allow_overwrite"] = True
+    return cfg
+
+
+def build_result32b_section_cfg(
+    *,
+    base_cfg: dict[str, Any],
+    output_dir: str = "",
+) -> dict[str, Any]:
+    cfg = _normalize_base_cfg(base_cfg)
+    exp_cfg = cfg["experiment"]
+    exp_cfg["predictors_supported"] = list(DEFAULT_PREDICTORS_5)
+    exp_cfg["predictors_run"] = [str(x).lower() for x in exp_cfg.get("predictors_run", [])] or list(DEFAULT_PREDICTORS_5)
+    exp_cfg["modality_variants"] = [
+        str(x) for x in exp_cfg.get("modality_variants", ["H_SINGLE_VI", "GH_SINGLE_VI"])
+    ]
+    exp_cfg["vi_names"] = [str(x) for x in exp_cfg.get("vi_names", DEFAULT_VI_NAMES)]
+    exp_cfg["n_anchor_bins"] = int(exp_cfg.get("n_anchor_bins", 20))
+    exp_cfg["factor_group_ablation"] = {"enabled": False}
+    exp_cfg["index_ablation"] = {"enabled": False}
+    if output_dir:
+        cfg["output"]["output_dir_base"] = str(output_dir)
+        cfg["output"]["append_timestamp"] = False
+        cfg["output"]["allow_overwrite"] = True
+    return cfg
+
+
+def build_result32c_section_cfg(
+    *,
+    base_cfg: dict[str, Any],
+    output_dir: str = "",
+) -> dict[str, Any]:
+    cfg = _normalize_base_cfg(base_cfg)
+    exp_cfg = cfg["experiment"]
+    exp_cfg["predictors_supported"] = list(DEFAULT_PREDICTORS_5)
+    exp_cfg["predictors_run"] = list(DEFAULT_PREDICTORS_5)
+    exp_cfg["modality_variants"] = ["G", "GH_FULL_VI"]
+    exp_cfg["vi_names"] = [str(x) for x in exp_cfg.get("vi_names", DEFAULT_VI_NAMES)]
+    exp_cfg["n_anchor_bins"] = int(exp_cfg.get("n_anchor_bins", 20))
+    exp_cfg["factor_group_ablation"] = {"enabled": False}
     exp_cfg["index_ablation"] = {"enabled": False}
     if output_dir:
         cfg["output"]["output_dir_base"] = str(output_dir)
@@ -118,18 +163,8 @@ def build_result32bc_section_cfg(
     best_anchor_csv: Path,
     output_dir: str = "",
 ) -> dict[str, Any]:
-    cfg = _normalize_base_cfg(base_cfg)
-    exp_cfg = cfg["experiment"]
-    requested_predictors = [str(x).lower() for x in exp_cfg.get("predictors_run", [])]
-    exp_cfg["predictors_supported"] = list(DEFAULT_PREDICTORS_5)
-    exp_cfg["predictors_run"] = requested_predictors or list(DEFAULT_PREDICTORS_5)
-    exp_cfg["vi_names"] = [str(x) for x in exp_cfg.get("vi_names", DEFAULT_VI_NAMES)]
-    exp_cfg["best_anchor_csv"] = str(best_anchor_csv)
-    exp_cfg["n_anchor_bins"] = int(exp_cfg.get("n_anchor_bins", 20))
-    if output_dir:
-        cfg["output"]["output_dir_base"] = str(output_dir)
-        cfg["output"]["append_timestamp"] = False
-        cfg["output"]["allow_overwrite"] = True
+    cfg = build_result32b_section_cfg(base_cfg=base_cfg, output_dir=output_dir)
+    cfg["experiment"]["best_anchor_csv"] = str(best_anchor_csv)
     return cfg
 
 

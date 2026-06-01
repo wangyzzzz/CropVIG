@@ -209,7 +209,7 @@ def enumerate_result32_tasks_from_config(cfg: dict) -> list[dict]:
 
     timeline_dirs = _resolve_timeline_dirs(data_cfg, exp_cfg)
     scenarios_cfg = _resolve_scenarios_cfg(data_cfg)
-    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"])]
+    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM", "Water"])]
     active_predictors = _resolve_active_predictors(exp_cfg)
     modality_combos = _resolve_modality_combos(exp_cfg)
     task_filter_set = _resolve_task_filter_set(exp_cfg)
@@ -815,7 +815,7 @@ def run_result3_2(config_path: Path) -> Path:
     _set_global_seed(seed)
 
     genotype_representation = str(exp_cfg.get("genotype_representation", "grm_pca"))
-    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"])]
+    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM", "Water"])]
     timeline_dirs = _resolve_timeline_dirs(data_cfg, exp_cfg)
     scenarios_cfg = _resolve_scenarios_cfg(data_cfg)
     model_cfg = exp_cfg.get("model_backends", {})

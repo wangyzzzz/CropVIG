@@ -12,7 +12,7 @@ from models.result33.runner import run_result3_3
 
 SECTION_CODE = "3.2A"
 SECTION_SCOPE = "internal"
-SECTION_SLUG = "effective_windows_under_gh"
+SECTION_SLUG = "h_only_single_vi_full_time_diagnosis"
 
 
 def build_parser() -> argparse.ArgumentParser:

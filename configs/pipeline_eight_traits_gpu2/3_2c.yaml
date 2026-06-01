@@ -16,15 +16,16 @@ data:
       genotype_fold_map_path: outputs/reports/loso_genotype_nested_genotype_fold_map.csv
 
 experiment:
-  targets: [ActualYD, CM, LM, PHM, Spike, TKW, CPM, Water]
+  targets: [ActualYD, CM, LM, PHM, Spike, TKW, CPM]
   genotype_representation: grm_pca
   n_anchor_bins: 20
   random_seed: 42
   predictors_supported: [ridge, lasso, elasticnet, lightgbm, random_forest]
   predictors_run: [ridge, lasso, elasticnet, lightgbm, random_forest]
-  modality_variants: [G, GH_SINGLE]
+  modality_variants: [G, GH_FULL_VI]
+  vi_names: [vi_evi2, vi_gndvi, vi_grvi, vi_mgrvi, vi_msavi, vi_msr, vi_ndre, vi_ndvi, vi_osavi, vi_rdvi, vi_savi, vi_vari]
   factor_group_ablation:
-    enabled: true
+    enabled: false
   index_ablation:
     enabled: false
 
@@ -48,7 +49,7 @@ preprocessing:
       default: 2000
 
 output:
-  output_dir_base: outputs/experiments/six_traits_full_pipeline_gpu2/3_2a
+  output_dir_base: outputs/experiments/eight_traits_full_pipeline_gpu2/3_2c
   append_timestamp: false
   allow_overwrite: true
   latest_pointer_file: null

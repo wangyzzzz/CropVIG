@@ -2,7 +2,7 @@ version: 1
 name: data_splits_4scenarios
 
 input:
-  path: /Users/wangyuze/Desktop/NWAFU/multi-mic-codex/data/processed/master_plot_metadata.parquet
+  path: data/processed/master_plot_metadata.parquet
   file_type: parquet
   sample_id_column: plot_id
   required_columns:
@@ -15,16 +15,16 @@ splits:
   scenarios:
     reference:
       custom_split_strategy: reference
-      genotype_fold_map_path: /Users/wangyuze/Desktop/NWAFU/multi-mic-codex/outputs/reports/loso_genotype_nested_genotype_fold_map.csv
+      genotype_fold_map_path: outputs/reports/loso_genotype_nested_genotype_fold_map.csv
     within_season:
       custom_split_strategy: within_season_known_year_unknown_genotype
-      genotype_fold_map_path: /Users/wangyuze/Desktop/NWAFU/multi-mic-codex/outputs/reports/loso_genotype_nested_genotype_fold_map.csv
+      genotype_fold_map_path: outputs/reports/loso_genotype_nested_genotype_fold_map.csv
     loso:
       custom_split_strategy: loso_known_genotype
-      genotype_fold_map_path: /Users/wangyuze/Desktop/NWAFU/multi-mic-codex/outputs/reports/loso_genotype_nested_genotype_fold_map.csv
+      genotype_fold_map_path: outputs/reports/loso_genotype_nested_genotype_fold_map.csv
     loso_genotype:
       custom_split_strategy: loso_genotype_unknown
-      genotype_fold_map_path: /Users/wangyuze/Desktop/NWAFU/multi-mic-codex/outputs/reports/loso_genotype_nested_genotype_fold_map.csv
+      genotype_fold_map_path: outputs/reports/loso_genotype_nested_genotype_fold_map.csv
 
 output:
   split_dir: data/processed/splits_4scenarios

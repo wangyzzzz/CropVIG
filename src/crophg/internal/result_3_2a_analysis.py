@@ -17,7 +17,7 @@ SECTION_CODE = "3.2A"
 SECTION_SCOPE = "internal"
 SECTION_SLUG = "effective_windows_across_scenarios_formal_analysis"
 SCENARIOS = ["reference", "within_season", "loso", "loso_genotype"]
-TARGETS = ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"]
+TARGETS = ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM", "Water"]
 
 
 def build_parser() -> argparse.ArgumentParser:

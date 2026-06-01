@@ -11,6 +11,7 @@ from crophg.internal.result_3_2bc_analysis_common import (
     build_same_vi_summary,
     build_scenario_trait_overview,
     build_shared_anchor_report_table,
+    build_top_gh_vi,
     build_top_h_vi,
     plot_scenario_heatmaps,
 )

@@ -118,13 +118,19 @@ def load_loso_genotype_splits(split_dir: Path) -> Dict[Tuple[int, int], List[Wit
 
 
 def load_split_groups(split_dir: Path, validation_scenario: str) -> Dict[Tuple[int, int], List[WithinSeasonSplit]]:
+    if not split_dir.exists():
+        raise FileNotFoundError(f"split_dir 不存在: {split_dir}")
     scenario = str(validation_scenario).strip().lower().replace('-', '_')
     if scenario == 'reference':
-        return load_reference_splits(split_dir)
-    if scenario == 'within_season':
-        return load_within_season_splits(split_dir)
-    if scenario == 'loso':
-        return load_loso_splits(split_dir)
-    if scenario in {'loso_genotype', 'genotype_loso', 'loso_plus_genotype'}:
-        return load_loso_genotype_splits(split_dir)
-    raise ValueError(f'不支持的 validation_scenario: {validation_scenario}')
+        grouped = load_reference_splits(split_dir)
+    elif scenario == 'within_season':
+        grouped = load_within_season_splits(split_dir)
+    elif scenario == 'loso':
+        grouped = load_loso_splits(split_dir)
+    elif scenario in {'loso_genotype', 'genotype_loso', 'loso_plus_genotype'}:
+        grouped = load_loso_genotype_splits(split_dir)
+    else:
+        raise ValueError(f'不支持的 validation_scenario: {validation_scenario}')
+    if not grouped:
+        raise FileNotFoundError(f"split_dir 中没有找到可用于 {validation_scenario} 的 split: {split_dir}")
+    return grouped

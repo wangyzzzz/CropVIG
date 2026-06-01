@@ -32,6 +32,8 @@ experiment:
     - PHM
     - Spike
     - TKW
+    - CPM
+    - Water
   predictors_supported:
     - ridge
     - elasticnet

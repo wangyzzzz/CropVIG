@@ -3,26 +3,44 @@ data:
     gdd_rel_heading: data/processed/model_inputs_engineered/gdd_rel_heading
   scenarios:
     reference:
-      split_dir: data/processed/splits_4scenarios
+      split_dir: data/processed/splits_4scenarios_ood_cell
       validation_scenario: reference
     within_season:
-      split_dir: data/processed/splits_4scenarios
+      split_dir: data/processed/splits_4scenarios_ood_cell
       validation_scenario: within_season
     loso:
-      split_dir: data/processed/splits_4scenarios
+      split_dir: data/processed/splits_4scenarios_ood_cell
       validation_scenario: loso
     loso_genotype:
-      split_dir: data/processed/splits_4scenarios
+      split_dir: data/processed/splits_4scenarios_ood_cell
       validation_scenario: loso_genotype
 
 experiment:
   random_seed: 42
   n_anchor_bins: 20
   genotype_representation: grm
-  input_variants: [G, H_FULL, H_ANCHOR_AUTO, G+H_ANCHOR_AUTO, G+FULLH]
-  targets: [ActualYD, CM, LM, PHM, Spike, TKW, CPM, Water]
-  predictors_supported: [ridge, elasticnet, lightgbm, random_forest]
-  predictors_run: [ridge]
+  input_variants:
+    - G
+    - H_FULL
+    - H_ANCHOR_AUTO
+    - G+H_ANCHOR_AUTO
+    - G+FULLH
+  targets:
+    - ActualYD
+    - CM
+    - LM
+    - PHM
+    - Spike
+    - TKW
+    - CPM
+    - Water
+  predictors_supported:
+    - ridge
+    - elasticnet
+    - lightgbm
+    - random_forest
+  predictors_run:
+    - ridge
   skip_lightgbm_runtime: true
   model_backends:
     lightgbm_backend: native
@@ -34,14 +52,20 @@ experiment:
     n_anchor_bins: 20
     enable_phase_internal_tail_fill: true
   anchor_window_search:
-    radius_candidates: [0]
+    radius_candidates:
+      - 0
+      - 1
+      - 2
+      - 3
+  growth_prefix:
+    enabled: false
   anchor_local_pruning:
     enabled: true
     group_score_agg: top3_mean
-    min_groups: 4
-    max_groups: 24
+    min_groups: 0
+    max_groups: 48
     group_min_score: 0.02
-    group_relative_drop_threshold: 0.20
+    group_relative_drop_threshold: 0.2
     group_plateau_tolerance: 0.01
     group_plateau_patience: 2
     group_min_per_phase: 2
@@ -58,6 +82,19 @@ optuna:
   n_trials: 10
   lambda_gap: 1.0
   pruner_startup_trials: 1
+  reuse_best_params_across_outer_folds: true
+  reuse_scope: task_first_outer_fold
+  ridge_alpha_grid:
+    enabled: true
+    min_alpha: 0.001
+    max_alpha: 100.0
+    num: 21
+    selection_metric: pearson
+    tie_tolerance: 0.001
+    fusion_tie_tolerance: 0.001
+    std_tie_tolerance: 1.0e-12
+    prefer_larger_alpha_on_tie: true
+    fusion_prefer_larger_alpha_on_tie: true
 
 preprocessing:
   imputer:
@@ -76,9 +113,8 @@ preprocessing:
       random_forest: 500
 
 output:
-  output_dir_base: outputs/experiments/result3_4A_gdd_rel_heading_anchor_auto_4scenarios_crophg_full
-  append_timestamp: true
-  timestamp_format: "%Y%m%d_%H%M%S"
-  allow_overwrite: false
-  latest_pointer_file: outputs/experiments/result3_4A_gdd_rel_heading_anchor_auto_4scenarios_crophg_full_latest.txt
+  output_dir_base: outputs/experiments/eight_traits_full_pipeline_gpu2/3_3b_tie001
+  append_timestamp: false
+  allow_overwrite: true
+  latest_pointer_file: null
   progress_log: true

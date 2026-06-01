@@ -157,8 +157,14 @@ def build_saturation_summary(prefix_curve: pd.DataFrame) -> pd.DataFrame:
         sub = sub.sort_values("anchor_order")
         first = float(sub.iloc[0]["mean_pearson"])
         last = float(sub.iloc[-1]["mean_pearson"])
-        peak = float(sub["mean_pearson"].max())
-        peak_anchor = int(sub.loc[sub["mean_pearson"].idxmax(), "anchor_order"])
+        valid_peak = sub.loc[sub["mean_pearson"].notna(), :]
+        if valid_peak.empty:
+            peak = float("nan")
+            peak_anchor = float("nan")
+        else:
+            peak_idx = valid_peak["mean_pearson"].idxmax()
+            peak = float(valid_peak.loc[peak_idx, "mean_pearson"])
+            peak_anchor = int(valid_peak.loc[peak_idx, "anchor_order"])
         rows.append(
             {
                 "scenario": scenario,

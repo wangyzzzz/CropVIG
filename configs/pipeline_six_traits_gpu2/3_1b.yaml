@@ -16,7 +16,7 @@ data:
       genotype_fold_map_path: outputs/reports/loso_genotype_nested_genotype_fold_map.csv
 
 experiment:
-  targets: [ActualYD, CM, LM, PHM, Spike, TKW]
+  targets: [ActualYD, CM, LM, PHM, Spike, TKW, CPM, Water]
   genotype_representation: grm_pca
   random_seed: 42
   modality_combo: H+G

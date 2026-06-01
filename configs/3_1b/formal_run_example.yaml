@@ -10,6 +10,8 @@ experiment:
     - PHM
     - Spike
     - TKW
+    - CPM
+    - Water
   genotype_representation: grm_pca
   random_seed: 42
 

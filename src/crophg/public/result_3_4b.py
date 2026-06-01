@@ -20,7 +20,7 @@ SECTION_CODE = "3.4B"
 SECTION_SCOPE = "public"
 SECTION_SLUG = "anchor_vi_evolution"
 VARIANT_ORDER = ["H_ANCHOR_AUTO", "G+H_ANCHOR_AUTO"]
-TRAIT_ORDER = ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"]
+TRAIT_ORDER = ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM", "Water"]
 
 
 def build_parser() -> argparse.ArgumentParser:

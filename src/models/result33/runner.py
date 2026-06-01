@@ -43,7 +43,8 @@ warnings.filterwarnings("ignore", message="Skipping features without any observe
 warnings.filterwarnings("ignore", message="invalid value encountered in sqrt", category=RuntimeWarning)
 
 DEFAULT_MODALITY_VARIANTS = ["G", "GH_SINGLE", "GH_FULL"]
-DEFAULT_TARGETS = ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"]
+FULL_VI_MODALITY_VARIANTS = {"H_FULL_VI", "GH_FULL_VI"}
+DEFAULT_TARGETS = ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM", "Water"]
 VEGETATION_INDEX_TOKENS = (
     "EVI2",
     "GNDVI",
@@ -179,6 +180,12 @@ def _normalize_modality_variant(value: str) -> str:
         "G_H_SINGLE_VI": "GH_SINGLE_VI",
         "GH_VI": "GH_SINGLE_VI",
         "G_H_VI": "GH_SINGLE_VI",
+        "H_FULL_VI": "H_FULL_VI",
+        "H_VI_FULL": "H_FULL_VI",
+        "H_FULL_INDEX": "H_FULL_VI",
+        "GH_FULL_VI": "GH_FULL_VI",
+        "G_H_FULL_VI": "GH_FULL_VI",
+        "G_FULL_H_VI": "GH_FULL_VI",
         "GHFULL": "GH_FULL",
         "GH_FULL": "GH_FULL",
         "G_H_FULL": "GH_FULL",
@@ -221,6 +228,10 @@ def _normalize_vi_name(value: Any) -> str:
     if token.startswith("vi_"):
         return token
     return f"vi_{token}"
+
+
+def _h_feature_vi_token(col_name: Any) -> str:
+    return _normalize_vi_name(_h_feature_base_name(str(col_name)))
 
 
 def _resolve_vi_names(exp_cfg: dict) -> list[str]:
@@ -349,6 +360,31 @@ def enumerate_result33_tasks_from_config(cfg: dict) -> list[dict]:
                                     if task_filter_set and task_key not in task_filter_set:
                                         continue
                                     tasks.append(task)
+                            continue
+
+                        if modality_variant in FULL_VI_MODALITY_VARIANTS:
+                            for vi_name in vi_names:
+                                task = {
+                                    "scenario": scenario_name,
+                                    "timeline": timeline_name,
+                                    "target": target_col,
+                                    "predictor": predictor,
+                                    "modality_variant": modality_variant,
+                                    "anchor_idx": None,
+                                    "vi_name": vi_name,
+                                }
+                                task_key = (
+                                    scenario_name,
+                                    timeline_name,
+                                    target_col,
+                                    predictor,
+                                    modality_variant,
+                                    None,
+                                    vi_name,
+                                )
+                                if task_filter_set and task_key not in task_filter_set:
+                                    continue
+                                tasks.append(task)
                             continue
 
                         task = {
@@ -510,6 +546,40 @@ def _build_result33_feature_matrix(
         )
         x = sanitize_feature_matrix(x)
         info["modality_variant"] = modality_variant
+        return x, info
+
+    if modality_variant in FULL_VI_MODALITY_VARIANTS:
+        requested_vi_names = []
+        if vi_names:
+            requested_vi_names.extend(_normalize_vi_name(v) for v in vi_names)
+        elif vi_name is not None:
+            requested_vi_names.append(_normalize_vi_name(vi_name))
+        else:
+            raise ValueError(f"{modality_variant} 需要提供 vi_name 或 vi_names。")
+
+        anchor = anchors[-1]
+        x_all, x_info = build_feature_matrix(bundle, anchor.anchor_key, input_type="temporal")
+        normalized_set = set(requested_vi_names)
+        h_cols = [
+            col
+            for col in x_info.get("h_cols", [])
+            if _h_feature_vi_token(col) in normalized_set
+        ]
+        if not h_cols:
+            raise ValueError(f"{modality_variant} 未找到完整时间窗 VI 列: {requested_vi_names}")
+        g_cols = list(x_info.get("g_cols", [])) if modality_variant == "GH_FULL_VI" else []
+        use_cols = h_cols + g_cols
+        x = sanitize_feature_matrix(x_all.loc[:, use_cols].copy())
+        info = {
+            "modality_variant": modality_variant,
+            "n_features_total": int(x.shape[1]),
+            "n_features_h": int(len(h_cols)),
+            "n_features_g": int(len(g_cols)),
+            "h_cols": list(h_cols),
+            "g_cols": list(g_cols),
+            "vi_name": requested_vi_names[0] if len(requested_vi_names) == 1 else None,
+            "vi_names": list(requested_vi_names),
+        }
         return x, info
 
     if anchor_idx is None:
@@ -1537,6 +1607,34 @@ def _build_feature_cache(
                         )
                     )
 
+    full_vi_variants = [v for v in ["H_FULL_VI", "GH_FULL_VI"] if v in modality_variants]
+    if full_vi_variants:
+        full_anchor = anchors[-1] if anchors else None
+        resolved_vi_names = vi_names or [f"vi_{token.lower()}" for token in VEGETATION_INDEX_TOKENS]
+        for variant in full_vi_variants:
+            for vi_name in resolved_vi_names:
+                x, info = _build_result33_feature_matrix(
+                    bundle=bundle,
+                    anchors=anchors,
+                    modality_variant=variant,
+                    anchor_idx=None,
+                    vi_name=vi_name,
+                )
+                cache_key = (timeline_name, variant, None, str(info["vi_name"]))
+                cache[cache_key] = (x, info)
+                rows.append(
+                    _summarize_feature_info(
+                        timeline=timeline_name,
+                        modality_variant=variant,
+                        anchor_idx=None,
+                        anchor_tb=int(full_anchor.anchor_tb) if full_anchor is not None else None,
+                        anchor_phase=full_anchor.anchor_phase if full_anchor is not None else None,
+                        anchor_band="full_season",
+                        x=x,
+                        info=info,
+                    )
+                )
+
     return cache, rows
 
 
@@ -1625,6 +1723,33 @@ def _runtime_tasks(
                                             "vi_name": normalized_vi,
                                         }
                                     )
+                            continue
+
+                        if modality_variant in FULL_VI_MODALITY_VARIANTS:
+                            for vi_name in vi_names:
+                                normalized_vi = _normalize_vi_name(vi_name)
+                                key = (
+                                    scenario_name,
+                                    timeline_name,
+                                    target_col,
+                                    predictor,
+                                    modality_variant,
+                                    None,
+                                    normalized_vi,
+                                )
+                                if task_filter_set and key not in task_filter_set:
+                                    continue
+                                tasks.append(
+                                    {
+                                        "scenario": scenario_name,
+                                        "timeline": timeline_name,
+                                        "target": target_col,
+                                        "predictor": predictor,
+                                        "modality_variant": modality_variant,
+                                        "anchor_idx": None,
+                                        "vi_name": normalized_vi,
+                                    }
+                                )
                             continue
 
                         key = (scenario_name, timeline_name, target_col, predictor, modality_variant, None, None)
@@ -2073,10 +2198,10 @@ def run_result3_3(config_path: Path, *, dry_run: bool = False) -> Path | None:
             else (timeline_name, modality_variant, anchor_idx)
         )
         x, info = feature_cache[cache_key]
-        anchor = anchors[int(anchor_idx)] if anchor_idx is not None else (anchors[-1] if modality_variant == "GH_FULL" and anchors else None)
+        anchor = anchors[int(anchor_idx)] if anchor_idx is not None else (anchors[-1] if modality_variant in {"GH_FULL", "H_FULL_VI", "GH_FULL_VI"} and anchors else None)
         anchor_tb = int(anchor.anchor_tb) if anchor is not None else None
         anchor_phase = anchor.anchor_phase if anchor is not None else None
-        anchor_band = _anchor_band(int(anchor_idx), len(anchors)) if anchor_idx is not None else ("full_season" if modality_variant == "GH_FULL" else None)
+        anchor_band = _anchor_band(int(anchor_idx), len(anchors)) if anchor_idx is not None else ("full_season" if modality_variant in {"GH_FULL", "H_FULL_VI", "GH_FULL_VI"} else None)
 
         print(
             f"[TASK {task_idx}/{total_tasks}] scenario={scenario_name} timeline={timeline_name} target={target_col} predictor={predictor} variant={modality_variant} anchor={anchor_idx if anchor_idx is not None else 'NA'} vi={vi_name if vi_name is not None else 'NA'} features={x.shape[1]}",

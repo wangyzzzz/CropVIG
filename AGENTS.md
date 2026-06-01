@@ -147,14 +147,23 @@
   - `3.3B/3.4A` keep raw-`y` scoring and `g_aware_score_blend: 1.0`, but use `radius_candidates: [0, 1]`, `max_groups: 12`, and a 5-point ridge alpha grid for speed
 - Never interpret smoke accuracy as a formal result.
 
-## Six-Trait Full Pipeline
+## Full Pipeline Targets
 
-- End-to-end six-trait formal execution entry: `scripts/run_six_traits_full_pipeline_gpu2.sh`.
-- Six-trait formal outputs must stay under:
+- End-to-end formal execution entry remains: `scripts/run_six_traits_full_pipeline_gpu2.sh`.
+- Historical path / script names still use `six_traits` for compatibility, but the current formal target set has been expanded.
+- Formal full-pipeline outputs must stay under:
   - `outputs/experiments/six_traits_full_pipeline_gpu2`
   - `outputs/reports/six_traits_full_pipeline_gpu2`
-- Six-trait targets are fixed as:
-  - `ActualYD`, `CM`, `LM`, `PHM`, `Spike`, `TKW`
+- Current formal targets are:
+  - `ActualYD`, `CM`, `LM`, `PHM`, `Spike`, `TKW`, `CPM`, `Water`
+- `CPM` and `Water` are merged into `data/processed/model_inputs_engineered/gdd_rel_heading/y.parquet` from:
+  - `data/raw/21-22品质.xlsx`
+  - `data/raw/23-24品质.xlsx`
+  - `data/raw/24-25品质.xlsx`
+- Quality-trait merge rule:
+  - left-join onto the current analysis sample set only
+  - never introduce extra samples from the quality tables
+  - current backup before merge: `data/processed/model_inputs_engineered/gdd_rel_heading/y.before_quality_traits.parquet`
 - Six-trait `3.3B/3.4A` must keep the same formal `tie001`口径 as the accepted two-trait run:
   - raw-`y` H-reduce scoring
   - `g_aware_score_blend: 1.0`

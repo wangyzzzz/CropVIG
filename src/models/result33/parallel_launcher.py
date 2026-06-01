@@ -61,6 +61,8 @@ def _task_weight(task: dict[str, Any]) -> float:
         "GH_SINGLE": 1.0,
         "H_SINGLE_VI": 0.7,
         "GH_SINGLE_VI": 0.8,
+        "H_FULL_VI": 0.9,
+        "GH_FULL_VI": 1.0,
     }
     base = (
         predictor_weight.get(str(task["predictor"]).lower(), 1.5)
@@ -92,7 +94,16 @@ def group_tasks_by_unit(tasks: list[dict[str, Any]]) -> list[list[dict[str, Any]
         unit_tasks = sorted(
             unit_tasks,
             key=lambda x: (
-                {"G": 0, "GH_FULL": 1, "H_SINGLE": 2, "GH_SINGLE": 3, "H_SINGLE_VI": 4, "GH_SINGLE_VI": 5}.get(str(x["modality_variant"]), 9),
+                {
+                    "G": 0,
+                    "GH_FULL": 1,
+                    "H_SINGLE": 2,
+                    "GH_SINGLE": 3,
+                    "H_SINGLE_VI": 4,
+                    "GH_SINGLE_VI": 5,
+                    "H_FULL_VI": 6,
+                    "GH_FULL_VI": 7,
+                }.get(str(x["modality_variant"]), 9),
                 -1 if x.get("anchor_idx") is None else int(x.get("anchor_idx")),
                 str(x.get("vi_name") or ""),
             ),

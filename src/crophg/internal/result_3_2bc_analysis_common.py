@@ -12,7 +12,7 @@ import seaborn as sns
 from crophg.internal.shared_anchor import build_shared_anchor_table as select_shared_anchor_table
 
 SCENARIOS = ["reference", "within_season", "loso", "loso_genotype"]
-TARGETS = ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"]
+TARGETS = ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM", "Water"]
 PREDICTORS = ["ridge", "lasso", "elasticnet", "lightgbm", "random_forest"]
 VI_ORDER = [
     "vi_evi2",

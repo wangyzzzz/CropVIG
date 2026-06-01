@@ -193,7 +193,7 @@ def enumerate_result34_tasks_from_config(cfg: dict) -> list[dict[str, Any]]:
     exp_cfg = cfg.get("experiment", {})
     timeline_dirs = _resolve_timeline_dirs(data_cfg)
     scenarios_cfg = _resolve_scenarios_cfg(data_cfg)
-    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"])]
+    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM", "Water"])]
     active_predictors = _resolve_active_predictors(exp_cfg)
     input_variants = _resolve_input_variants(exp_cfg)
     task_filter_set = _resolve_task_filter_set(exp_cfg)
@@ -1505,25 +1505,50 @@ def _select_best_ridge_grid_trial(
         except Exception:
             return float("nan")
 
-    max_score = max(score(t) for t in complete_trials)
-    near_best = [t for t in complete_trials if max_score - score(t) <= tie_tolerance]
-    min_std = min(std_score(t) for t in near_best)
-    stable = [t for t in near_best if std_score(t) - min_std <= std_tie_tolerance]
-    if prefer_larger_alpha:
-        best = max(stable, key=lambda t: alpha_value(t))
+    finite_score_trials = [t for t in complete_trials if np.isfinite(score(t))]
+    if finite_score_trials:
+        max_score = max(score(t) for t in finite_score_trials)
+        near_best = [t for t in finite_score_trials if max_score - score(t) <= tie_tolerance]
+        min_std = min(std_score(t) for t in near_best)
+        stable = [t for t in near_best if std_score(t) - min_std <= std_tie_tolerance]
+        if prefer_larger_alpha:
+            best = max(stable, key=lambda t: alpha_value(t))
+        else:
+            best = min(stable, key=lambda t: alpha_value(t))
+
+        def sort_key(t: optuna.trial.FrozenTrial) -> tuple[float, float, float, int]:
+            return (
+                -score(t),
+                std_score(t),
+                -alpha_value(t) if prefer_larger_alpha else alpha_value(t),
+                int(t.number),
+            )
     else:
-        best = min(stable, key=lambda t: alpha_value(t))
+        # Some quality traits can have constant y in a small inner-validation fold,
+        # making Pearson undefined for every alpha. Keep the outer fold valid by
+        # falling back to validation RMSE, while trial attrs still record Pearson=nan.
+        def rmse_value(t: optuna.trial.FrozenTrial) -> float:
+            return _trial_attr_float(t, "mean_val_rmse", float("inf"))
+
+        finite_rmse_trials = [t for t in complete_trials if np.isfinite(rmse_value(t))]
+        candidate_trials = finite_rmse_trials if finite_rmse_trials else complete_trials
+        min_rmse = min(rmse_value(t) for t in candidate_trials)
+        near_best = [t for t in candidate_trials if rmse_value(t) - min_rmse <= 1.0e-12]
+        if prefer_larger_alpha:
+            best = max(near_best, key=lambda t: alpha_value(t))
+        else:
+            best = min(near_best, key=lambda t: alpha_value(t))
+
+        def sort_key(t: optuna.trial.FrozenTrial) -> tuple[float, float, float, int]:
+            return (
+                rmse_value(t),
+                std_score(t),
+                -alpha_value(t) if prefer_larger_alpha else alpha_value(t),
+                int(t.number),
+            )
 
     remaining = [t for t in complete_trials if t.number != best.number]
-    remaining = sorted(
-        remaining,
-        key=lambda t: (
-            -score(t),
-            std_score(t),
-            -alpha_value(t) if prefer_larger_alpha else alpha_value(t),
-            int(t.number),
-        ),
-    )
+    remaining = sorted(remaining, key=sort_key)
     return best, [best, *remaining]
 
 
@@ -2645,7 +2670,7 @@ def run_result34(config_path: Path) -> Path:
     _set_global_seed(seed)
 
     genotype_representation = str(exp_cfg.get("genotype_representation", "grm_pca"))
-    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW"])]
+    targets = [str(x) for x in exp_cfg.get("targets", ["ActualYD", "CM", "LM", "PHM", "Spike", "TKW", "CPM", "Water"])]
     timeline_dirs = _resolve_timeline_dirs(data_cfg)
     scenarios_cfg = _resolve_scenarios_cfg(data_cfg)
     active_predictors = _resolve_active_predictors(exp_cfg)
@@ -2848,7 +2873,10 @@ def run_result34(config_path: Path) -> Path:
                     }
                 )
                 if not prepared_groups:
-                    continue
+                    raise FileNotFoundError(
+                        f"Result34 找不到可用 split: scenario={scenario_name}, timeline={timeline_name}, target={target_col}. "
+                        f"请先生成 split_dir={scenario_cfg.get('split_dir')}"
+                    )
 
                 for input_variant in input_variants:
                     is_auto_variant = str(input_variant).strip().upper() in AUTO_WINDOW_VARIANTS
@@ -3235,14 +3263,24 @@ def run_result34(config_path: Path) -> Path:
                                         trial.set_user_attr("mean_val_mae", mean_val_metrics["mae"])
                                         trial.set_user_attr("mean_val_pearson", mean_val_metrics["pearson_r"])
                                         trial.set_user_attr("std_val_pearson", std_val_pearson)
+                                        if ridge_grid_cfg is not None:
+                                            mean_val_pearson = float(mean_val_metrics["pearson_r"])
+                                            if np.isfinite(mean_val_pearson):
+                                                trial.set_user_attr(
+                                                    "selection_objective_mode",
+                                                    "max_mean_val_pearson_grid",
+                                                )
+                                                return -mean_val_pearson
+                                            trial.set_user_attr(
+                                                "selection_objective_mode",
+                                                "min_mean_val_rmse_grid_when_pearson_nan",
+                                            )
+                                            fallback_rmse = float(mean_val_metrics["rmse"])
+                                            return fallback_rmse if np.isfinite(fallback_rmse) else 1.0e30
                                         trial.set_user_attr(
                                             "selection_objective_mode",
-                                            "max_mean_val_pearson_grid"
-                                            if ridge_grid_cfg is not None
-                                            else "min_train_val_rmse_gap",
+                                            "min_train_val_rmse_gap",
                                         )
-                                        if ridge_grid_cfg is not None:
-                                            return -float(mean_val_metrics["pearson_r"])
                                         return obj
 
                                     study.optimize(objective, n_trials=n_trials_effective, show_progress_bar=False)
