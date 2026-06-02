@@ -10,13 +10,13 @@ The repository implements the three CropVIG prediction models used in the manusc
 
 The public API is centered on three CropVIG models. Two additional inputs are used as baselines in the manuscript: `G` and `12VI sets`.
 
-| Manuscript name | Internal variant | Input representation | Main role |
-| --- | --- | --- | --- |
-| `G` baseline | `G` | GRM-based genomic branch only | Genomic backbone reference |
-| `12VI sets` baseline | `H_FULL` | Full multispectral VI time series | Full phenomic baseline |
-| `CropVIG-1` | `G+FULLH` | GRM-GBLUP G branch plus full VI time series | Full VI+G fusion without AP-VI selection |
-| `CropVIG-2` | `H_ANCHOR_AUTO` | Adaptive phenology-VI selection only | Compact VI-only model |
-| `CropVIG-3` | `G+H_ANCHOR_AUTO` | GRM-GBLUP G branch plus AP-VI-selected VI units | Main CropVIG model |
+| Manuscript name | Input representation | Main role |
+| --- | --- | --- |
+| `G` baseline | GRM-based genomic branch only | Genomic backbone reference |
+| `12VI sets` baseline | Full multispectral VI time series | Full phenomic baseline |
+| `CropVIG-1` | GRM-GBLUP G branch plus full VI time series | Full VI+G fusion without AP-VI selection |
+| `CropVIG-2` | Adaptive phenology-VI selection only | Compact VI-only model |
+| `CropVIG-3` | GRM-GBLUP G branch plus AP-VI-selected VI units | Main CropVIG model |
 
 In the final CropVIG model set, the VI branch uses ridge regression, the G branch uses GRM-GBLUP through `sommer`, and VI+G integration is performed by ordinary least-squares late fusion on inner-validation predictions.
 
